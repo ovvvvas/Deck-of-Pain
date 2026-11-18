@@ -569,8 +569,15 @@ test('GitHub Pages & subpath deployment contracts hold', () => {
   const mainSrc = fs.readFileSync(path.join(ROOT, 'src/main.tsx'), 'utf8');
   assert.match(mainSrc, /RootErrorBoundary/);
 
+  const workflowPath = path.join(ROOT, '.github/workflows/deploy.yml');
   assert.ok(
-    fs.existsSync(path.join(ROOT, '.github/workflows/deploy.yml')),
+    fs.existsSync(workflowPath),
     'GitHub Pages workflow should exist'
   );
+  const workflowSrc = fs.readFileSync(workflowPath, 'utf8');
+  assert.match(workflowSrc, /actions\/checkout@v5/);
+  assert.match(workflowSrc, /actions\/setup-node@v6/);
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.match(pkg.devDependencies.esbuild, /^\^0\.2[78]\./);
 });
