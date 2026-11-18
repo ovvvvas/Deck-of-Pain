@@ -17,6 +17,12 @@ import {
   isRedSuit,
   totalDeckReps,
 } from '../utils/deck';
+import {
+  consumeCrossedMilestone,
+  haptics,
+  seedPassedMilestones,
+  type WorkoutMilestone,
+} from '../utils/haptics';
 import { sfx } from '../utils/sound';
 import { clearSavedSession, persistSavedSession } from '../utils/storage';
 import { Charts } from './Charts';
@@ -386,6 +392,17 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
   const cardElRef = useRef<HTMLDivElement | null>(null);
   const dragStartXRef = useRef<number>(0);
   const isDraggingRef = useRef<boolean>(false);
+  const initialRepsDone = resumeSession
+    ? deck.slice(0, resumeSession.idx).reduce((sum, c) => sum + c.reps, 0)
+    : 0;
+  const firedMilestonesRef = useRef<Set<WorkoutMilestone>>(
+    seedPassedMilestones(
+      initialRepsDone,
+      totalDeckReps(deck),
+      resumeSession ? resumeSession.idx : 0,
+      deck.length
+    )
+  );
 
   const saveProgress = useCallback(() => {
     const now = pausedAt ?? Date.now();
@@ -462,6 +479,16 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
     };
   }, []);
 
+  // Opening coach whistle + initial card-dealt haptic feedback when player mounts
+  useEffect(() => {
+    if (pausedAt === null) {
+      sfx.whistle();
+      haptics.cardDealt(Boolean(deck[cardIndex]?.j));
+    }
+    // Intentionally run once when player mounts for this session
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const currentCard = deck[cardIndex];
   const repsDone = useMemo(
     () => deck.slice(0, cardIndex).reduce((sum, c) => sum + c.reps, 0),
@@ -472,8 +499,6 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
   const completeCard = useCallback(() => {
     if (!currentCard || pausedAt !== null) return;
     const now = Date.now();
-    sfx.pop();
-    sfx.whoosh();
 
     const cardWorkMs = Math.max(
       0,
@@ -488,15 +513,11 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
     cardHistoryEpochsRef.current.push(cardStartEpochRef.current);
     cardStartEpochRef.current = now;
 
-    try {
-      navigator.vibrate?.(15);
-    } catch {
-      // Vibration unsupported
-    }
-
     if (cardIndex + 1 >= deck.length) {
       clearSavedSession();
+      sfx.bell(2);
       sfx.fanfare();
+      haptics.complete();
 
       const j1Name = preset.jokers?.[0] || preset.joker || 'Burpees';
       const j2Name = preset.jokers?.[1] || preset.jokers?.[0] || preset.joker || 'Jump Squats';
@@ -532,12 +553,40 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
       return;
     }
 
+    const nextIdx = cardIndex + 1;
+    const nextCard = deck[nextIdx];
+    const milestone = consumeCrossedMilestone({
+      prevRepsDone: repsDone,
+      nextRepsDone: repsDone + currentCard.reps,
+      totalReps,
+      nextCardIndex: nextIdx,
+      totalCards: deck.length,
+      fired: firedMilestonesRef.current,
+    });
+
+    if (milestone !== null) {
+      sfx.bell(milestone === 50 || milestone === 'final' ? 2 : 1);
+      haptics.milestone();
+    } else if (nextCard?.j) {
+      sfx.whoosh();
+      sfx.buzzer();
+      if (!autoRest) {
+        haptics.cardDealt(true);
+      }
+    } else {
+      sfx.pop();
+      sfx.whoosh();
+      if (!autoRest) {
+        haptics.cardDealt(false);
+      }
+    }
+
     setSplits(nextSplits);
     setRestSplits(nextRestSplits);
     setTossedCard({ card: currentCard, key: dealAnimKey });
     window.setTimeout(() => setTossedCard(null), 450);
 
-    setCardIndex((prev) => prev + 1);
+    setCardIndex(nextIdx);
     setDealAnimKey((prev) => prev + 1);
 
     if (autoRest) {
@@ -555,7 +604,11 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
     level,
     onCompleteWorkout,
     pausedAt,
+    preset.ex,
+    preset.joker,
+    preset.jokers,
     preset.name,
+    repsDone,
     restSplits,
     splits,
     totalReps,
@@ -564,6 +617,7 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
   const undoLastCard = useCallback(() => {
     if (cardIndex === 0 || pausedAt !== null) return;
     sfx.pop();
+    haptics.tap();
     setCardIndex((prev) => prev - 1);
     setSplits((prev) => prev.slice(0, -1));
     pendingRestMsRef.current = restSplits[restSplits.length - 1] ?? 0;
@@ -574,8 +628,9 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
   }, [cardIndex, pausedAt, restSplits]);
 
   const togglePause = useCallback(() => {
-    sfx.pop();
     if (pausedAt !== null) {
+      sfx.whistle();
+      haptics.cardDealt(Boolean(deck[cardIndex]?.j));
       const pausedDuration = Date.now() - pausedAt;
       startEpochRef.current += pausedDuration;
       cardStartEpochRef.current += pausedDuration;
@@ -584,9 +639,11 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
       );
       setPausedAt(null);
     } else {
+      sfx.buzzer();
+      haptics.tap();
       setPausedAt(Date.now());
     }
-  }, [pausedAt]);
+  }, [cardIndex, deck, pausedAt]);
 
   const actionRef = useRef({
     complete: completeCard,
@@ -660,11 +717,8 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
     holdTimerRef.current = window.setTimeout(() => {
       holdTimerRef.current = 0;
       setIsHoldingQuit(false);
-      try {
-        navigator.vibrate?.(30);
-      } catch {
-        // Ignore
-      }
+      sfx.buzzer();
+      haptics.alert();
       if (pausedAt === null) {
         pausedByQuitModalRef.current = true;
         setPausedAt(Date.now());
@@ -1051,6 +1105,7 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
             }
             restStartEpochRef.current = 0;
             setShowRest(false);
+            haptics.cardDealt(Boolean(deck[cardIndex]?.j));
           }}
         />
       )}

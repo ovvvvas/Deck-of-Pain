@@ -11,14 +11,13 @@ import {
   Heart,
   History,
   LayoutGrid,
-  Moon,
+  Palette,
   Pencil,
   Play,
   Plus,
   RotateCcw,
   Search,
   SlidersHorizontal,
-  Sun,
   Trash2,
   Trophy,
   Upload,
@@ -46,6 +45,7 @@ import {
 } from './components/SessionBreakdown';
 import { Stepper } from './components/Stepper';
 import { SuitGlyph } from './components/SuitIcon';
+import { ThemeSettingsModal } from './components/ThemeSettingsModal';
 import { TourModal } from './components/TourModal';
 import { WeeklyGoalCard } from './components/WeeklyGoalCard';
 import { WeeklyVolumeChart } from './components/WeeklyVolumeChart';
@@ -67,6 +67,7 @@ import type {
   LevelKey,
   Preset,
   SavedSession,
+  ThemeAccentId,
   ThemeMode,
   WorkoutLog,
 } from './types/workout';
@@ -88,6 +89,13 @@ import {
   saveUserSettings,
   saveWorkoutLogs,
 } from './utils/storage';
+import {
+  DEFAULT_ACCENT_ID,
+  DEFAULT_THEME_MODE,
+  isValidAccentId,
+  isValidThemeMode,
+  resolveThemeMode,
+} from './utils/theme';
 
 type AppView = 'home' | 'warm' | 'play' | 'done' | 'cool';
 type DashboardTab = 'train' | 'protocols' | 'history' | 'badges';
@@ -152,14 +160,20 @@ export default function App() {
       ? initialSettings.level
       : 's'
   );
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    if (initialSettings.theme === 'dark' || initialSettings.theme === 'light') {
-      return initialSettings.theme;
-    }
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-  });
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() =>
+    isValidThemeMode(initialSettings.theme)
+      ? initialSettings.theme
+      : DEFAULT_THEME_MODE
+  );
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() =>
+    Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+  );
+  const [accent, setAccent] = useState<ThemeAccentId>(() =>
+    isValidAccentId(initialSettings.accent)
+      ? initialSettings.accent
+      : DEFAULT_ACCENT_ID
+  );
+  const resolvedTheme = resolveThemeMode(themeMode, systemPrefersDark);
   const [muted, setMuted] = useState<boolean>(
     () => Boolean(initialSettings.mute)
   );
@@ -210,6 +224,7 @@ export default function App() {
   const [creatingRoutine, setCreatingRoutine] = useState(false);
   const [showFormGuide, setShowFormGuide] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
   const [inspectedLog, setInspectedLog] = useState<WorkoutLog | null>(null);
   const [inspectedTab, setInspectedTab] = useState<AnalysisTab>('charts');
   const [showCompareModal, setShowCompareModal] = useState(false);
@@ -224,10 +239,21 @@ export default function App() {
     isError: boolean;
   } | null>(null);
 
+  // Listen to OS color scheme changes for System theme mode
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    setSystemPrefersDark(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+
   // Sync DOM attributes & settings persistence
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    document.documentElement.dataset.theme = resolvedTheme;
+    document.documentElement.dataset.accent = accent;
+  }, [resolvedTheme, accent]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -241,7 +267,8 @@ export default function App() {
 
   useEffect(() => {
     saveUserSettings({
-      theme,
+      theme: themeMode,
+      accent,
       mute: muted,
       pid,
       half: halfDeck,
@@ -254,7 +281,8 @@ export default function App() {
       weeklyGoal,
     });
   }, [
-    theme,
+    themeMode,
+    accent,
     muted,
     pid,
     halfDeck,
@@ -787,18 +815,15 @@ export default function App() {
             <button
               type="button"
               className="btn !min-h-[38px] !min-w-[38px] sm:!min-h-[40px] sm:!min-w-[40px] !px-0 shrink-0"
-              aria-label={t('Toggle theme')}
-              title={t('Toggle theme')}
+              aria-label={t('Theme settings')}
+              title={t('Theme settings')}
+              aria-haspopup="dialog"
               onClick={() => {
                 sfx.pop();
-                setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+                setShowThemeSettings(true);
               }}
             >
-              {theme === 'light' ? (
-                <Moon className="w-4 h-4" aria-hidden="true" />
-              ) : (
-                <Sun className="w-4 h-4" aria-hidden="true" />
-              )}
+              <Palette className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -2058,6 +2083,21 @@ export default function App() {
       )}
 
       {showTour && <TourModal onClose={() => setShowTour(false)} />}
+
+      {showThemeSettings && (
+        <ThemeSettingsModal
+          themeMode={themeMode}
+          resolvedTheme={resolvedTheme}
+          accent={accent}
+          onChangeThemeMode={setThemeMode}
+          onChangeAccent={setAccent}
+          onReset={() => {
+            setThemeMode(DEFAULT_THEME_MODE);
+            setAccent(DEFAULT_ACCENT_ID);
+          }}
+          onClose={() => setShowThemeSettings(false)}
+        />
+      )}
 
       {showCompareModal && (
         <PerformanceCompareModal

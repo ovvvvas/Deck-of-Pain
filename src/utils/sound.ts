@@ -6,7 +6,7 @@ export function setAudioMuted(muted: boolean): void {
 }
 
 function getAudioContext(): AudioContext | null {
-  if (isMuted) return null;
+  if (isMuted || typeof window === 'undefined') return null;
   if (!audioCtx) {
     try {
       const Ctx =
@@ -20,7 +20,7 @@ function getAudioContext(): AudioContext | null {
     }
   }
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {});
+    audioCtx.resume?.().catch(() => {});
   }
   return audioCtx;
 }
@@ -93,5 +93,138 @@ export const sfx = {
     [523, 659, 784, 1047, 784, 1047].forEach((freq, idx) =>
       playTone(freq, 0.28, 'sawtooth', 0.08, idx * 0.14)
     );
+  },
+
+  /**
+   * Coach / referee pea whistle: dual high oscillators with an LFO trill and breath transient.
+   */
+  whistle: (): void => {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const duration = 0.32;
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      const masterGain = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc2.type = 'triangle';
+
+      osc1.frequency.setValueAtTime(2200, now);
+      osc1.frequency.exponentialRampToValueAtTime(2820, now + 0.045);
+
+      osc2.frequency.setValueAtTime(2350, now);
+      osc2.frequency.exponentialRampToValueAtTime(2980, now + 0.045);
+
+      lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(38, now);
+      lfoGain.gain.setValueAtTime(110, now);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc1.frequency);
+      lfoGain.connect(osc2.frequency);
+
+      masterGain.gain.setValueAtTime(0.0001, now);
+      masterGain.gain.exponentialRampToValueAtTime(0.11, now + 0.02);
+      masterGain.gain.setValueAtTime(0.11, now + duration - 0.07);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc1.connect(masterGain);
+      osc2.connect(masterGain);
+      masterGain.connect(ctx.destination);
+
+      lfo.start(now);
+      osc1.start(now);
+      osc2.start(now);
+
+      lfo.stop(now + duration + 0.02);
+      osc1.stop(now + duration + 0.02);
+      osc2.stop(now + duration + 0.02);
+    } catch {
+      // Fallback single tone if complex node graph fails
+      playTone(2800, 0.28, 'sine', 0.1);
+    }
+  },
+
+  /**
+   * Boxing / round gym bell: bright inharmonic metallic partials with resonant decay.
+   */
+  bell: (strikes = 1): void => {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      const count = Math.max(1, Math.min(3, strikes));
+      const baseFreq = 880;
+      const partials: [number, number, number][] = [
+        [1.0, 0.14, 0.78],
+        [2.02, 0.09, 0.56],
+        [2.76, 0.06, 0.42],
+        [3.42, 0.04, 0.3],
+        [4.18, 0.025, 0.2],
+      ];
+
+      for (let s = 0; s < count; s++) {
+        const strikeTime = ctx.currentTime + s * 0.24;
+        for (const [ratio, amp, decay] of partials) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(baseFreq * ratio, strikeTime);
+
+          gain.gain.setValueAtTime(amp, strikeTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, strikeTime + decay);
+
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(strikeTime);
+          osc.stop(strikeTime + decay + 0.02);
+        }
+      }
+    } catch {
+      playTone(880, 0.45, 'triangle', 0.15);
+    }
+  },
+
+  /**
+   * Arena / shot-clock gym buzzer: low detuned sawtooth pair routed through a warm low-pass filter.
+   */
+  buzzer: (): void => {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const duration = 0.28;
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(145, now);
+      osc2.frequency.setValueAtTime(152, now);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(760, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.13, now + 0.015);
+      gain.gain.setValueAtTime(0.13, now + duration - 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain).connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration + 0.02);
+      osc2.stop(now + duration + 0.02);
+    } catch {
+      playTone(150, 0.26, 'sawtooth', 0.12);
+    }
   },
 };

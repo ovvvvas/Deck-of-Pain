@@ -1,6 +1,16 @@
 export type Language = 'en' | 'fa';
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'system' | 'light' | 'dark';
+
+export type ThemeAccentId =
+  | 'ember'
+  | 'crimson'
+  | 'cobalt'
+  | 'emerald'
+  | 'teal'
+  | 'bronze'
+  | 'violet'
+  | 'rose';
 
 export type LevelKey = 'b' | 's' | 'a';
 
@@ -91,6 +101,7 @@ export interface SavedSession {
 
 export interface UserSettings {
   theme?: ThemeMode;
+  accent?: ThemeAccentId;
   mute?: boolean;
   pid?: string;
   half?: boolean;

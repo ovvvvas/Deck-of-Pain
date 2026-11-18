@@ -7,7 +7,22 @@ import { buildComparisonMetrics } from '../components/PerformanceCompareModal';
 import { computeSessionKcal } from '../components/SessionBreakdown';
 import { computeWeeklySeries } from '../components/WeeklyVolumeChart';
 import { setAppLanguage, t } from '../data/i18n';
+import {
+  consumeCrossedMilestone,
+  haptics,
+  seedPassedMilestones,
+  setHapticsEnabled,
+} from '../utils/haptics';
 import { suggestRestAdjustment } from '../utils/recovery';
+import { setAudioMuted, sfx } from '../utils/sound';
+import {
+  DEFAULT_ACCENT_ID,
+  DEFAULT_THEME_MODE,
+  isValidAccentId,
+  isValidThemeMode,
+  resolveThemeMode,
+  THEME_ACCENTS,
+} from '../utils/theme';
 import {
   BADGE_SPECS,
   computeAchievements,
@@ -660,4 +675,273 @@ test('GitHub Pages & subpath deployment contracts hold', () => {
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.match(pkg.devDependencies.esbuild, /^\^0\.2[78]\./);
+});
+
+test('Haptics (Navigator Vibrate API) & workout milestone tracking work properly', () => {
+  const originalNavigatorDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const recordedPatterns: (number | number[])[] = [];
+
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        vibrate: (pattern: number | number[]) => {
+          recordedPatterns.push(pattern);
+          return true;
+        },
+      },
+    });
+
+    setHapticsEnabled(true);
+    assert.equal(haptics.cardDealt(false), true);
+    assert.equal(haptics.cardDealt(true), true);
+    assert.equal(haptics.milestone(), true);
+    assert.equal(haptics.complete(), true);
+
+    assert.equal(recordedPatterns[0], 16);
+    assert.deepEqual(recordedPatterns[1], [22, 35, 38]);
+    assert.ok(Array.isArray(recordedPatterns[2]));
+    assert.ok(Array.isArray(recordedPatterns[3]));
+
+    setHapticsEnabled(false);
+    assert.equal(haptics.cardDealt(false), false);
+    setHapticsEnabled(true);
+  } finally {
+    if (originalNavigatorDesc) {
+      Object.defineProperty(globalThis, 'navigator', originalNavigatorDesc);
+    } else {
+      Reflect.deleteProperty(globalThis, 'navigator');
+    }
+  }
+
+  // Milestone detection & non-duplication
+  const fired = seedPassedMilestones(0, 100, 0, 10);
+  assert.equal(fired.size, 0);
+
+  assert.equal(
+    consumeCrossedMilestone({
+      prevRepsDone: 10,
+      nextRepsDone: 20,
+      totalReps: 100,
+      nextCardIndex: 2,
+      totalCards: 10,
+      fired,
+    }),
+    null
+  );
+
+  assert.equal(
+    consumeCrossedMilestone({
+      prevRepsDone: 20,
+      nextRepsDone: 30,
+      totalReps: 100,
+      nextCardIndex: 3,
+      totalCards: 10,
+      fired,
+    }),
+    25
+  );
+  // Crossing 25% again must not re-fire
+  assert.equal(
+    consumeCrossedMilestone({
+      prevRepsDone: 30,
+      nextRepsDone: 40,
+      totalReps: 100,
+      nextCardIndex: 4,
+      totalCards: 10,
+      fired,
+    }),
+    null
+  );
+  assert.equal(
+    consumeCrossedMilestone({
+      prevRepsDone: 45,
+      nextRepsDone: 55,
+      totalReps: 100,
+      nextCardIndex: 5,
+      totalCards: 10,
+      fired,
+    }),
+    50
+  );
+  assert.equal(
+    consumeCrossedMilestone({
+      prevRepsDone: 70,
+      nextRepsDone: 78,
+      totalReps: 100,
+      nextCardIndex: 8,
+      totalCards: 10,
+      fired,
+    }),
+    75
+  );
+  assert.equal(
+    consumeCrossedMilestone({
+      prevRepsDone: 85,
+      nextRepsDone: 92,
+      totalReps: 100,
+      nextCardIndex: 9,
+      totalCards: 10,
+      fired,
+    }),
+    'final'
+  );
+
+  // Resuming past 60% seeds 25 and 50 so only 75 and final remain
+  const resumed = seedPassedMilestones(60, 100, 6, 10);
+  assert.equal(resumed.has(25), true);
+  assert.equal(resumed.has(50), true);
+  assert.equal(resumed.has(75), false);
+});
+
+test('Athletic sound library (whistle, bell, buzzer) synthesizes audio & wires transitions cleanly', () => {
+  const originalWindowDesc = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  let oscillatorCount = 0;
+  let filterCount = 0;
+
+  class MockAudioParam {
+    value = 0;
+    setValueAtTime() {}
+    exponentialRampToValueAtTime() {}
+  }
+  class MockNode {
+    connect() {
+      return this;
+    }
+    start() {}
+    stop() {}
+  }
+  class MockAudioContext {
+    state = 'running';
+    currentTime = 0;
+    sampleRate = 44100;
+    destination = {};
+    resume() {
+      return Promise.resolve();
+    }
+    createOscillator() {
+      oscillatorCount++;
+      return Object.assign(new MockNode(), {
+        type: 'sine',
+        frequency: new MockAudioParam(),
+      });
+    }
+    createGain() {
+      return Object.assign(new MockNode(), {
+        gain: new MockAudioParam(),
+      });
+    }
+    createBiquadFilter() {
+      filterCount++;
+      return Object.assign(new MockNode(), {
+        type: 'lowpass',
+        frequency: new MockAudioParam(),
+      });
+    }
+    createBuffer(_c: number, len: number) {
+      return { getChannelData: () => new Float32Array(len) };
+    }
+    createBufferSource() {
+      return Object.assign(new MockNode(), { buffer: null });
+    }
+  }
+
+  try {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { AudioContext: MockAudioContext },
+    });
+
+    setAudioMuted(false);
+    sfx.whistle();
+    assert.ok(oscillatorCount >= 3, 'Whistle should create dual oscillators + LFO');
+
+    const beforeBell = oscillatorCount;
+    sfx.bell(2);
+    assert.equal(oscillatorCount - beforeBell, 10, 'Two bell strikes should create 5 partials each');
+
+    const beforeBuzzer = oscillatorCount;
+    const beforeFilter = filterCount;
+    sfx.buzzer();
+    assert.equal(oscillatorCount - beforeBuzzer, 2, 'Buzzer should create detuned sawtooth pair');
+    assert.equal(filterCount - beforeFilter, 1, 'Buzzer should pass through lowpass filter');
+
+    const mutedBefore = oscillatorCount;
+    setAudioMuted(true);
+    sfx.whistle();
+    sfx.bell();
+    sfx.buzzer();
+    assert.equal(oscillatorCount, mutedBefore, 'Muted state must suppress all athletic sounds');
+    setAudioMuted(false);
+  } finally {
+    if (originalWindowDesc) {
+      Object.defineProperty(globalThis, 'window', originalWindowDesc);
+    } else {
+      Reflect.deleteProperty(globalThis, 'window');
+    }
+  }
+
+  const playerSrc = fs.readFileSync(
+    path.join(ROOT, 'src/components/WorkoutPlayer.tsx'),
+    'utf8'
+  );
+  assert.match(playerSrc, /sfx\.whistle\(\)/);
+  assert.match(playerSrc, /sfx\.bell\(/);
+  assert.match(playerSrc, /sfx\.buzzer\(\)/);
+  assert.match(playerSrc, /haptics\.cardDealt/);
+  assert.match(playerSrc, /haptics\.milestone/);
+  assert.match(playerSrc, /haptics\.complete/);
+
+  const restSrc = fs.readFileSync(
+    path.join(ROOT, 'src/components/RestModal.tsx'),
+    'utf8'
+  );
+  assert.match(restSrc, /sfx\.bell\(\)/);
+  assert.match(restSrc, /haptics\.alert\(\)/);
+});
+
+test('Theme Settings: system/light/dark resolution and accent color palettes match CSS contracts', () => {
+  assert.equal(DEFAULT_THEME_MODE, 'system');
+  assert.equal(DEFAULT_ACCENT_ID, 'ember');
+  assert.equal(resolveThemeMode('system', true), 'dark');
+  assert.equal(resolveThemeMode('system', false), 'light');
+  assert.equal(resolveThemeMode('light', true), 'light');
+  assert.equal(resolveThemeMode('dark', false), 'dark');
+
+  assert.equal(isValidThemeMode('system'), true);
+  assert.equal(isValidThemeMode('light'), true);
+  assert.equal(isValidThemeMode('dark'), true);
+  assert.equal(isValidThemeMode('midnight'), false);
+
+  assert.ok(THEME_ACCENTS.length >= 6, 'Should provide multiple curated accent colors');
+  assert.equal(
+    new Set(THEME_ACCENTS.map((a) => a.id)).size,
+    THEME_ACCENTS.length,
+    'All accent IDs must be unique'
+  );
+  assert.equal(isValidAccentId('cobalt'), true);
+  assert.equal(isValidAccentId('unknown-color'), false);
+
+  const css = fs.readFileSync(path.join(ROOT, 'src/index.css'), 'utf8');
+  for (const accent of THEME_ACCENTS) {
+    assert.match(
+      css,
+      new RegExp(`:root\\[data-accent="${accent.id}"\\]`),
+      `Missing light CSS override for accent ${accent.id}`
+    );
+    assert.match(
+      css,
+      new RegExp(`:root\\[data-theme="dark"\\]\\[data-accent="${accent.id}"\\]`),
+      `Missing dark CSS override for accent ${accent.id}`
+    );
+  }
+
+  const modalSrc = fs.readFileSync(
+    path.join(ROOT, 'src/components/ThemeSettingsModal.tsx'),
+    'utf8'
+  );
+  assert.match(modalSrc, /System/);
+  assert.match(modalSrc, /Light/);
+  assert.match(modalSrc, /Dark/);
+  assert.match(modalSrc, /THEME_ACCENTS/);
 });

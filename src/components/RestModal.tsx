@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { t } from '../data/i18n';
+import { haptics } from '../utils/haptics';
 import { sfx } from '../utils/sound';
 import { Modal } from './Modal';
 
@@ -17,7 +18,8 @@ export const RestModal: React.FC<RestModalProps> = ({
 
   useEffect(() => {
     if (remaining <= 0) {
-      sfx.alert();
+      sfx.bell();
+      haptics.alert();
       const closeTimer = window.setTimeout(onClose, 850);
       return () => window.clearTimeout(closeTimer);
     }
@@ -80,6 +82,7 @@ export const RestModal: React.FC<RestModalProps> = ({
           className="btn mono text-xs"
           onClick={() => {
             sfx.pop();
+            haptics.tap();
             setRemaining((prev) => Math.max(1, prev - 15));
           }}
         >
@@ -92,6 +95,7 @@ export const RestModal: React.FC<RestModalProps> = ({
             className={`btn mono text-xs ${total === presetSec ? 'btn-active' : ''}`}
             onClick={() => {
               sfx.pop();
+              haptics.tap();
               setTotal(presetSec);
               setRemaining(presetSec);
             }}
@@ -105,6 +109,7 @@ export const RestModal: React.FC<RestModalProps> = ({
           className="btn mono text-xs"
           onClick={() => {
             sfx.pop();
+            haptics.tap();
             setRemaining((prev) => {
               const next = prev + 15;
               setTotal((currTotal) => Math.max(currTotal, next));
@@ -120,7 +125,8 @@ export const RestModal: React.FC<RestModalProps> = ({
         type="button"
         className="btn btn-cta w-full mt-5"
         onClick={() => {
-          sfx.pop();
+          sfx.whistle();
+          haptics.tap();
           onClose();
         }}
       >

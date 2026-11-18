@@ -457,6 +457,26 @@ const FA_TRANSLATIONS: Record<string, string> = {
     'زمان تفکیکی کارت‌ها برای این جلسه‌ها ثبت نشده؛ میانگین کلی نمایش داده می‌شود.',
   'No RPE ratings recorded for the selected sessions.':
     'برای جلسه‌های انتخاب‌شده امتیاز RPE ثبت نشده است.',
+  'Theme settings': 'تنظیمات پوسته',
+  'Choose appearance mode and accent color.': 'حالت نمایش و رنگ اصلی برنامه را انتخاب کن.',
+  Appearance: 'حالت نمایش',
+  System: 'سیستم',
+  Light: 'روشن',
+  Dark: 'تیره',
+  'Following device preference': 'هماهنگ با تنظیمات دستگاه',
+  Currently: 'در حال حاضر',
+  'Accent color': 'رنگ اصلی',
+  Ember: 'اخگر',
+  Crimson: 'زرشکی',
+  Cobalt: 'کبالتی',
+  Emerald: 'زمردی',
+  Teal: 'فیروزه‌ای',
+  Bronze: 'برنزی',
+  Violet: 'بنفش',
+  Rose: 'سرخابی',
+  Preview: 'پیش‌نمایش',
+  'Primary action': 'دکمه اصلی',
+  'Reset default': 'بازگشت به پیش‌فرض',
 };
 
 export function t(key: string): string {

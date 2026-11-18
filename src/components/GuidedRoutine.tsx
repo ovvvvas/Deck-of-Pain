@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getAppLanguage, t } from '../data/i18n';
 import type { GuidedStep } from '../types/workout';
+import { haptics } from '../utils/haptics';
 import { sfx } from '../utils/sound';
 
 interface GuidedRoutineProps {
@@ -22,6 +23,7 @@ export const GuidedRoutine: React.FC<GuidedRoutineProps> = ({
 
   const advance = () => {
     sfx.pop();
+    haptics.tap();
     if (stepIdx + 1 >= steps.length) {
       onFinish();
     } else {
@@ -32,7 +34,8 @@ export const GuidedRoutine: React.FC<GuidedRoutineProps> = ({
 
   useEffect(() => {
     if (remaining <= 0) {
-      sfx.alert();
+      sfx.bell();
+      haptics.alert();
       if (stepIdx + 1 >= steps.length) {
         onFinish();
       } else {
