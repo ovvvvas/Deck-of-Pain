@@ -1,0 +1,8 @@
+{
+  "name": "Deck of Pain",
+  "description": "Offline-ready tactical playing-card calisthenics and conditioning workout trainer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
