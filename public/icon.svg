@@ -1,48 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="116" fill="#131d2d" />
-  <rect x="34" y="34" width="444" height="444" rx="86" fill="#fffdf8" />
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#182740" />
+      <stop offset="100%" stop-color="#090f18" />
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7a48" />
+      <stop offset="100%" stop-color="#e8491d" />
+    </linearGradient>
+  </defs>
+
+  <!-- Athletic Midnight Shield -->
+  <rect width="512" height="512" rx="116" fill="url(#bg-grad)" />
+  <path d="M0 370 L512 132 L512 512 L0 512 Z" fill="#090f18" fill-opacity="0.52" />
   <rect
-    x="50"
-    y="50"
-    width="412"
-    height="412"
-    rx="72"
+    x="14"
+    y="14"
+    width="484"
+    height="484"
+    rx="104"
     fill="none"
-    stroke="#142030"
-    stroke-opacity="0.12"
-    stroke-width="4"
+    stroke="#2a3f5f"
+    stroke-width="6"
   />
 
-  <!-- Top-Left: Spade -->
-  <g transform="translate(70, 70) scale(0.94)" fill="#142030">
-    <path d="M50 8 C34 27 14 45 14 63 C14 76 24 85 36 85 C42 85 47 82 49 78 C47 86 43 91 37 95 L63 95 C57 91 53 86 51 78 C53 82 58 85 64 85 C76 85 86 76 86 63 C86 45 66 27 50 8 Z" />
-  </g>
+  <!-- Bold Athletic Joker Crown -->
+  <path
+    d="M128 358 Q102 288 88 214 L184 274 L256 138 L328 274 L424 214 Q410 288 384 358 Z"
+    fill="#ffffff"
+  />
 
-  <!-- Top-Right: Heart -->
-  <g transform="translate(348, 70) scale(0.94)" fill="#dc2626">
-    <path d="M50 88 C47 85 12 61 12 36 C12 21 23 11 36 11 C43 11 48 15 50 20 C52 15 57 11 64 11 C77 11 88 21 88 36 C88 61 53 85 50 88 Z" />
-  </g>
+  <!-- Heavy Chamfered Power Bar -->
+  <path
+    d="M136 378 L376 378 L394 401 L376 424 L136 424 L118 401 Z"
+    fill="url(#accent-grad)"
+  />
 
-  <!-- Bottom-Left: Diamond -->
-  <g transform="translate(70, 348) scale(0.94)" fill="#dc2626">
-    <path d="M50 8 L84 50 L50 92 L16 50 Z" />
-  </g>
-
-  <!-- Bottom-Right: Club -->
-  <g transform="translate(348, 348) scale(0.94)" fill="#142030">
-    <circle cx="50" cy="30" r="17" />
-    <circle cx="30" cy="57" r="17" />
-    <circle cx="70" cy="57" r="17" />
-    <circle cx="50" cy="49" r="9" />
-    <path d="M45 48 L55 48 L61 92 L39 92 Z" />
-  </g>
-
-  <!-- Center: Joker Crown -->
-  <g transform="translate(144, 156.8) scale(3.5)" fill="#7c3aed">
-    <path d="M16 42C12 31 9 23 12 19c4-1 10 4 13 11 2-8 4.5-14 7-17 2.5 3 5 9 7 17 3-7 9-12 13-11 3 4 0 12-4 23H16z" />
-    <rect x="15" y="46.5" width="34" height="5.5" rx="2.75" />
-    <circle cx="9.5" cy="15.5" r="3.8" />
-    <circle cx="32" cy="8.5" r="3.8" />
-    <circle cx="54.5" cy="15.5" r="3.8" />
-  </g>
+  <!-- Bold Apex Spheres -->
+  <circle cx="80" cy="172" r="27" fill="url(#accent-grad)" />
+  <circle cx="256" cy="92" r="29" fill="url(#accent-grad)" />
+  <circle cx="432" cy="172" r="27" fill="url(#accent-grad)" />
 </svg>
