@@ -225,4 +225,4 @@ export function getPresetMovementNames(
   return [...suits, j1, j2];
 }
 
-export const JOKER_SVG = '/joker-icon.svg';
+export const JOKER_SVG = './joker-icon.svg';

@@ -705,7 +705,7 @@ export default function App() {
           {/* Zone 1: Wordmark */}
           <div className="flex items-center gap-2 min-w-0">
             <img
-              src="/icon.svg"
+              src="./icon.svg"
               alt="Deck of Pain"
               width={34}
               height={34}

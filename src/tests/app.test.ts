@@ -552,3 +552,25 @@ test('101 Hard Badges & Quests: exact count, 500-10,000 movement tiers, Target R
     );
   }
 });
+
+test('GitHub Pages & subpath deployment contracts hold', () => {
+  const viteCfg = fs.readFileSync(path.join(ROOT, 'vite.config.ts'), 'utf8');
+  assert.match(viteCfg, /base:\s*['"]\.\/['"]/);
+  assert.match(viteCfg, /start_url:\s*['"]\.\/['"]/);
+  assert.match(viteCfg, /scope:\s*['"]\.\/['"]/);
+
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  assert.match(html, /href="\.\/icon\.svg"/);
+  assert.match(html, /href="\.\/apple-touch-icon\.png"/);
+
+  const deckSrc = fs.readFileSync(path.join(ROOT, 'src/utils/deck.ts'), 'utf8');
+  assert.match(deckSrc, /JOKER_SVG\s*=\s*['"]\.\/joker-icon\.svg['"]/);
+
+  const mainSrc = fs.readFileSync(path.join(ROOT, 'src/main.tsx'), 'utf8');
+  assert.match(mainSrc, /RootErrorBoundary/);
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, '.github/workflows/deploy.yml')),
+    'GitHub Pages workflow should exist'
+  );
+});
