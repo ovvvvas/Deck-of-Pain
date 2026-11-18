@@ -182,9 +182,9 @@ export const MOVEMENT_ALTS: Record<string, string> = {
 };
 
 export const LEVELS: Record<LevelKey, LevelConfig> = {
-  b: { name: 'Beginner', multiplier: 0.6, faceOverrides: { A: 12, K: 11, Q: 11, J: 11 } },
-  s: { name: 'Standard', multiplier: 1, faceOverrides: { A: 15, K: 13, Q: 12, J: 11 } },
-  a: { name: 'Advanced', multiplier: 1.25, faceOverrides: { A: 19, K: 16, Q: 15, J: 14 } },
+  b: { name: 'Beginner', multiplier: 1, faceOverrides: { J: 10, Q: 10, K: 10, A: 11 } },
+  s: { name: 'Standard', multiplier: 1, faceOverrides: { J: 11, Q: 12, K: 13, A: 15 } },
+  a: { name: 'Advanced', multiplier: 1, faceOverrides: { J: 12, Q: 14, K: 16, A: 18 } },
 };
 
 export const WARMUP_STEPS: GuidedStep[] = [
@@ -207,15 +207,15 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'The deck sets the reps',
     bullets: [
       'Draw a card, do that many reps of its suit’s movement, then draw the next.',
-      'Number cards count as their number. At Standard, Ace is 15 and K, Q, J are 13, 12 and 11.',
+      'Number cards 2–10 always equal their exact number. Face cards and Ace depend on your level.',
       'The two jokers are high-intensity bonus movements co-configured from 20 to 50 reps.',
     ],
   },
   {
     title: 'Pick your level',
     bullets: [
-      'Beginner keeps number cards small: Ace is 12 and K, Q, J are 11.',
-      'Standard is the full deck. Advanced adds 25 percent.',
+      'Beginner: J, Q, K = 10 and Ace = 11. Standard: J = 11, Q = 12, K = 13, Ace = 15.',
+      'Advanced: J = 12, Q = 14, K = 16, Ace = 18.',
       'Half-Deck Blitz plays about 26 cards when you are short on time.',
     ],
   },

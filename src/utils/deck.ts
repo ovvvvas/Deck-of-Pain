@@ -39,22 +39,14 @@ export function baseRepsForRank(rank: Rank): number {
 
 export function cardReps(
   rank: Rank,
-  scale: number,
+  _scale = 1,
   faceOverrides?: FaceOverrides
 ): number {
-  if (rank === '2') {
-    return 2;
-  }
-  if (
-    faceOverrides &&
-    (rank === 'A' || rank === 'K' || rank === 'Q' || rank === 'J') &&
-    faceOverrides[rank] != null
-  ) {
+  const isFace = rank === 'A' || rank === 'K' || rank === 'Q' || rank === 'J';
+  if (isFace && faceOverrides && faceOverrides[rank] != null) {
     return faceOverrides[rank]!;
   }
-  const base = baseRepsForRank(rank);
-  const scaled = Math.round(base * scale);
-  return Math.min(19, Math.max(2, scaled));
+  return baseRepsForRank(rank);
 }
 
 function shuffleInPlace<T>(items: T[]): T[] {
@@ -65,16 +57,61 @@ function shuffleInPlace<T>(items: T[]): T[] {
   return items;
 }
 
+function hasStreakAt(arr: Card[], idx: number): boolean {
+  const s = arr[idx].s;
+  const n = arr.length;
+  if (idx >= 2 && arr[idx - 1].s === s && arr[idx - 2].s === s) return true;
+  if (idx >= 1 && idx + 1 < n && arr[idx - 1].s === s && arr[idx + 1].s === s) return true;
+  if (idx + 2 < n && arr[idx + 1].s === s && arr[idx + 2].s === s) return true;
+  return false;
+}
+
+/**
+ * Smooths suit order so no single movement/suit repeats more than twice consecutively,
+ * preventing 3–5 back-to-back sets of the same exercise while keeping draw order unpredictable.
+ */
+function smoothSuitStreaks(cards: Card[]): Card[] {
+  const out = [...cards];
+  for (let pass = 0; pass < 3; pass++) {
+    let changed = false;
+    for (let i = 2; i < out.length; i++) {
+      if (out[i].s === out[i - 1].s && out[i].s === out[i - 2].s) {
+        for (let offset = 1; offset < out.length; offset++) {
+          const candidates = [i + offset, i - offset];
+          let swapped = false;
+          for (const j of candidates) {
+            if (j < 0 || j >= out.length || out[j].s === out[i].s) continue;
+            [out[i], out[j]] = [out[j], out[i]];
+            if (!hasStreakAt(out, i) && !hasStreakAt(out, j)) {
+              swapped = true;
+              changed = true;
+              break;
+            }
+            [out[i], out[j]] = [out[j], out[i]];
+          }
+          if (swapped) break;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
+}
+
+function randomIntInclusive(min: number, max: number): number {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
 export function buildDeck(
   config: { scale: number; jr?: number; jrs?: [number, number]; jokers?: [string, string]; fx?: FaceOverrides },
   halfDeck: boolean
 ): Card[] {
-  const jokerRepsArr = config.jrs ?? [config.jr ?? 50, config.jr ?? 50];
-  const deck: Card[] = [];
+  const jokerRepsArr = config.jrs ?? [config.jr ?? 40, config.jr ?? 40];
+  const suitCards: Card[] = [];
 
   for (let suit = 0; suit < 4; suit++) {
     for (const rank of RANKS) {
-      deck.push({
+      suitCards.push({
         r: rank,
         s: suit as SuitIndex,
         reps: cardReps(rank, config.scale, config.fx),
@@ -82,26 +119,61 @@ export function buildDeck(
     }
   }
 
+  const activeJokers: Card[] = [];
   if (jokerRepsArr[0] > 0) {
-    deck.push({ r: 'JK', s: 4, j: true, reps: jokerRepsArr[0], jokerIndex: 0 });
+    activeJokers.push({ r: 'JK', s: 4, j: true, reps: jokerRepsArr[0], jokerIndex: 0 });
   }
   if (jokerRepsArr[1] > 0) {
-    deck.push({ r: 'JK', s: 4, j: true, reps: jokerRepsArr[1], jokerIndex: 1 });
+    activeJokers.push({ r: 'JK', s: 4, j: true, reps: jokerRepsArr[1], jokerIndex: 1 });
   }
 
   if (!halfDeck) {
-    return shuffleInPlace(deck);
+    const paced = smoothSuitStreaks(shuffleInPlace(suitCards));
+    const orderedJokers = shuffleInPlace([...activeJokers]);
+    if (orderedJokers.length === 2) {
+      const firstPos = randomIntInclusive(6, Math.floor(paced.length * 0.45));
+      paced.splice(firstPos, 0, orderedJokers[0]);
+      const secondPos = randomIntInclusive(
+        Math.ceil(paced.length * 0.56),
+        paced.length - 3
+      );
+      paced.splice(secondPos, 0, orderedJokers[1]);
+    } else if (orderedJokers.length === 1) {
+      const pos = randomIntInclusive(10, paced.length - 8);
+      paced.splice(pos, 0, orderedJokers[0]);
+    }
+    return paced;
   }
 
+  // Half-Deck Blitz: sample balanced tiers (Low 2-5, Mid 6-9, High 10-A) per suit
+  const lowRanks = new Set<Rank>(['2', '3', '4', '5']);
+  const midRanks = new Set<Rank>(['6', '7', '8', '9']);
   const suitCounts = shuffleInPlace([7, 7, 6, 6]);
-  const halfCards = ([0, 1, 2, 3] as SuitIndex[]).flatMap((suit) =>
-    shuffleInPlace(deck.filter((c) => c.s === suit)).slice(0, suitCounts[suit])
-  );
 
-  const jokers = shuffleInPlace(deck.filter((c) => c.j));
-  if (jokers[0]) halfCards.push(jokers[0]);
+  const halfSuitCards = ([0, 1, 2, 3] as SuitIndex[]).flatMap((suit) => {
+    const ofSuit = suitCards.filter((c) => c.s === suit);
+    const lows = shuffleInPlace(ofSuit.filter((c) => lowRanks.has(c.r)));
+    const mids = shuffleInPlace(ofSuit.filter((c) => midRanks.has(c.r)));
+    const highs = shuffleInPlace(
+      ofSuit.filter((c) => !lowRanks.has(c.r) && !midRanks.has(c.r))
+    );
 
-  return shuffleInPlace(halfCards);
+    const picked = [...lows.slice(0, 2), ...mids.slice(0, 2), ...highs.slice(0, 2)];
+    if (suitCounts[suit] === 7) {
+      const leftovers = shuffleInPlace([lows[2], mids[2], highs[2]].filter(Boolean));
+      if (leftovers[0]) picked.push(leftovers[0]);
+    }
+    return picked;
+  });
+
+  const pacedHalf = smoothSuitStreaks(shuffleInPlace(halfSuitCards));
+  if (activeJokers.length > 0) {
+    const pickedJoker = shuffleInPlace([...activeJokers])[0];
+    const pos = randomIntInclusive(7, Math.max(7, pacedHalf.length - 7));
+    pacedHalf.splice(pos, 0, pickedJoker);
+  }
+
+  return pacedHalf;
 }
 
 export function totalDeckReps(deck: Card[]): number {
@@ -114,7 +186,7 @@ export function fullDeckReps(config: {
   jrs?: [number, number];
   fx?: FaceOverrides;
 }): number {
-  const jokerRepsArr = config.jrs ?? [config.jr ?? 50, config.jr ?? 50];
+  const jokerRepsArr = config.jrs ?? [config.jr ?? 40, config.jr ?? 40];
   const standardReps =
     4 *
     RANKS.reduce(

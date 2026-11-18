@@ -158,10 +158,10 @@ export const WeeklyVolumeChart: React.FC<WeeklyVolumeChartProps> = ({
             aria-label={`${t('Weekly volume (12w)')}: ${currentWeek.reps.toLocaleString()} / ${safeGoal.toLocaleString()}`}
           >
             {/* Horizontal grid lines */}
-            {[yMax, midMark, 0].map((mark) => {
+            {[yMax, midMark, 0].map((mark, idx) => {
               const y = toY(mark);
               return (
-                <g key={mark}>
+                <g key={`${idx}-${mark}`}>
                   <line
                     x1={padL}
                     y1={y}

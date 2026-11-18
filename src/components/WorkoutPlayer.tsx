@@ -20,7 +20,6 @@ import {
 import { sfx } from '../utils/sound';
 import { clearSavedSession, persistSavedSession } from '../utils/storage';
 import { Charts } from './Charts';
-import { FormGuideModal } from './FormGuideModal';
 import { Modal } from './Modal';
 import { CardFace } from './PlayingCard';
 import { RestModal } from './RestModal';
@@ -33,22 +32,14 @@ interface SessionClockDisplayProps {
   repsDone: number;
   totalReps: number;
   cardsRemaining: number;
+  totalCards: number;
+  cardIndex: number;
   estimatedKcal: number;
+  targetRpe?: number;
+  deck: Card[];
 }
 
-/**
- * Isolated clock display so 500ms timer ticks only re-render numeric readouts
- * rather than the entire card stage and movement list.
- */
-const SessionMetricsPanel: React.FC<SessionClockDisplayProps> = ({
-  startEpochRef,
-  cardStartEpochRef,
-  pausedAt,
-  repsDone,
-  totalReps,
-  cardsRemaining,
-  estimatedKcal,
-}) => {
+function useClockEpoch(pausedAt: number | null): number {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -58,39 +49,206 @@ const SessionMetricsPanel: React.FC<SessionClockDisplayProps> = ({
     return () => window.clearInterval(id);
   }, [pausedAt]);
 
-  const effectiveNow = pausedAt ?? now;
+  return pausedAt ?? now;
+}
+
+/**
+ * Compact single-screen mobile timer & progress HUD so card + clocks + Done button
+ * stay visible together without vertical scrolling.
+ */
+const MobileHudPanel: React.FC<SessionClockDisplayProps> = ({
+  startEpochRef,
+  cardStartEpochRef,
+  pausedAt,
+  repsDone,
+  totalReps,
+  cardsRemaining,
+  cardIndex,
+  targetRpe,
+  deck,
+}) => {
+  const effectiveNow = useClockEpoch(pausedAt);
+  const elapsedMs = Math.max(0, effectiveNow - startEpochRef.current);
+  const cardMs = Math.max(0, effectiveNow - cardStartEpochRef.current);
+  const pct = Math.round((repsDone / Math.max(1, totalReps)) * 100);
+
+  return (
+    <div className="lg:hidden surface-card rounded-2xl px-3.5 py-2.5 min-w-0">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-4 min-w-0">
+          <div>
+            <div className="mut text-[10px] font-semibold uppercase tracking-wider leading-none">
+              {t('Total time')}
+            </div>
+            <div className="mono font-bold text-xl sm:text-2xl leading-tight mt-0.5">
+              {formatDuration(elapsedMs)}
+            </div>
+          </div>
+          <div>
+            <div className="mut text-[10px] font-semibold uppercase tracking-wider leading-none">
+              {t('Card split')}
+            </div>
+            <div
+              className="mono font-bold text-xl sm:text-2xl leading-tight mt-0.5"
+              style={{ color: 'var(--ac)' }}
+            >
+              {formatDuration(cardMs)}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-end shrink-0">
+          <div className="flex items-center justify-end gap-1.5">
+            {targetRpe ? (
+              <span
+                className="mono text-[10px] font-bold px-1.5 py-0.5 rounded-md surface-inset"
+                style={{ color: targetRpe >= 8 ? 'var(--red)' : 'var(--ac)' }}
+              >
+                RPE {targetRpe}/10
+              </span>
+            ) : null}
+            <span className="mono font-bold text-sm">{pct}%</span>
+          </div>
+          <div className="mut mono text-[11px] leading-tight mt-0.5">
+            {cardsRemaining} {t('cards left')}
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="progress-track mt-2"
+        style={{ height: 7 }}
+        role="progressbar"
+        aria-label={t('Workout progress')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+      >
+        <i
+          className="progress-fill"
+          style={{ width: `${(repsDone / Math.max(1, totalReps)) * 100}%` }}
+        />
+      </div>
+
+      <div className="flex gap-[2px] mt-1.5" aria-hidden="true">
+        {deck.map((_, idx) => (
+          <span
+            key={idx}
+            className="flex-1 rounded-sm"
+            style={{
+              height: 4,
+              backgroundColor:
+                idx < cardIndex
+                  ? 'var(--ac)'
+                  : idx === cardIndex
+                  ? 'var(--tx)'
+                  : 'var(--border)',
+              opacity: idx <= cardIndex ? 1 : 0.65,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Secondary mobile stats row placed below the primary card & buttons so reps/min,
+ * kcal, and total rep counter stay accessible without pushing the card off-screen.
+ */
+const MobileSecondaryStats: React.FC<
+  Pick<
+    SessionClockDisplayProps,
+    'startEpochRef' | 'pausedAt' | 'repsDone' | 'totalReps' | 'estimatedKcal'
+  >
+> = ({ startEpochRef, pausedAt, repsDone, totalReps, estimatedKcal }) => {
+  const effectiveNow = useClockEpoch(pausedAt);
+  const elapsedMs = Math.max(0, effectiveNow - startEpochRef.current);
+  const elapsedMinutes = Math.max(elapsedMs / 60000, 1 / 60);
+  const repsPerMin = Math.round(repsDone / elapsedMinutes);
+
+  return (
+    <div className="lg:hidden grid grid-cols-3 gap-2 text-center">
+      <div className="surface-card rounded-2xl p-2.5">
+        <div className="mono text-base font-bold">
+          {repsDone}/{totalReps}
+        </div>
+        <div className="mut text-[11px]">{t('reps')}</div>
+      </div>
+      <div className="surface-card rounded-2xl p-2.5">
+        <div className="mono text-base font-bold">{repsPerMin}</div>
+        <div className="mut text-[11px]">{t('reps/min')}</div>
+      </div>
+      <div className="surface-card rounded-2xl p-2.5">
+        <div className="mono text-base font-bold">{estimatedKcal}</div>
+        <div className="mut text-[11px]">{t('≈ kcal')}</div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Full desktop clock & metrics panel.
+ */
+const SessionMetricsPanel: React.FC<SessionClockDisplayProps> = ({
+  startEpochRef,
+  cardStartEpochRef,
+  pausedAt,
+  repsDone,
+  totalReps,
+  cardsRemaining,
+  cardIndex,
+  estimatedKcal,
+  targetRpe,
+  deck,
+}) => {
+  const effectiveNow = useClockEpoch(pausedAt);
   const elapsedMs = Math.max(0, effectiveNow - startEpochRef.current);
   const cardMs = Math.max(0, effectiveNow - cardStartEpochRef.current);
   const elapsedMinutes = Math.max(elapsedMs / 60000, 1 / 60);
   const repsPerMin = Math.round(repsDone / elapsedMinutes);
 
   return (
-    <>
-      <div className="grid grid-cols-2 gap-4 mb-3 lg:mb-5">
-        <div>
-          <div className="mut text-xs sm:text-sm">{t('Total time')}</div>
-          <div
-            className="mono font-bold leading-none mt-1"
-            style={{ fontSize: 'clamp(2rem, 8.5vw, 3.4rem)' }}
-          >
-            {formatDuration(elapsedMs)}
+    <div className="hidden lg:block surface-card rounded-3xl p-5">
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="grid grid-cols-2 gap-6 flex-1">
+          <div>
+            <div className="mut text-sm">{t('Total time')}</div>
+            <div
+              className="mono font-bold leading-none mt-1"
+              style={{ fontSize: 'clamp(2rem, 3.6vw, 3.4rem)' }}
+            >
+              {formatDuration(elapsedMs)}
+            </div>
+          </div>
+          <div>
+            <div className="mut text-sm">{t('Card split')}</div>
+            <div
+              className="mono font-bold leading-none mt-1"
+              style={{ fontSize: 'clamp(2rem, 3.6vw, 3.4rem)', color: 'var(--ac)' }}
+            >
+              {formatDuration(cardMs)}
+            </div>
           </div>
         </div>
-        <div>
-          <div className="mut text-xs sm:text-sm">{t('Card split')}</div>
-          <div
-            className="mono font-bold leading-none mt-1"
-            style={{ fontSize: 'clamp(2rem, 8.5vw, 3.4rem)', color: 'var(--ac)' }}
-          >
-            {formatDuration(cardMs)}
+
+        {targetRpe ? (
+          <div className="surface-inset rounded-xl px-3 py-1.5 text-end shrink-0">
+            <div className="mut text-[10px] leading-none">{t('Target RPE')}</div>
+            <div
+              className="mono font-bold text-sm leading-tight mt-0.5"
+              style={{ color: targetRpe >= 8 ? 'var(--red)' : 'var(--ac)' }}
+            >
+              {targetRpe}/10
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="flex justify-between items-baseline mb-2">
-        <strong className="text-base sm:text-lg">{t('Workout progress')}</strong>
+        <strong className="text-lg">{t('Workout progress')}</strong>
         <span className="mono">
-          <strong className="text-xl sm:text-2xl">
+          <strong className="text-2xl">
             {Math.round((repsDone / Math.max(1, totalReps)) * 100)}%
           </strong>{' '}
           <span className="mut text-sm">
@@ -114,21 +272,40 @@ const SessionMetricsPanel: React.FC<SessionClockDisplayProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 lg:gap-3 mt-3 lg:mt-4 text-center">
-        <div className="surface-inset rounded-2xl p-2 lg:p-3">
-          <div className="mono text-xl lg:text-2xl font-bold">{cardsRemaining}</div>
-          <div className="mut text-xs sm:text-sm">{t('cards left')}</div>
+      <div className="grid grid-cols-3 gap-3 mt-4 text-center">
+        <div className="surface-inset rounded-2xl p-3">
+          <div className="mono text-2xl font-bold">{cardsRemaining}</div>
+          <div className="mut text-sm">{t('cards left')}</div>
         </div>
-        <div className="surface-inset rounded-2xl p-2 lg:p-3">
-          <div className="mono text-xl lg:text-2xl font-bold">{repsPerMin}</div>
-          <div className="mut text-xs sm:text-sm">{t('reps/min')}</div>
+        <div className="surface-inset rounded-2xl p-3">
+          <div className="mono text-2xl font-bold">{repsPerMin}</div>
+          <div className="mut text-sm">{t('reps/min')}</div>
         </div>
-        <div className="surface-inset rounded-2xl p-2 lg:p-3">
-          <div className="mono text-xl lg:text-2xl font-bold">{estimatedKcal}</div>
-          <div className="mut text-xs sm:text-sm">{t('≈ kcal')}</div>
+        <div className="surface-inset rounded-2xl p-3">
+          <div className="mono text-2xl font-bold">{estimatedKcal}</div>
+          <div className="mut text-sm">{t('≈ kcal')}</div>
         </div>
       </div>
-    </>
+
+      <div className="flex gap-[2px] mt-4" aria-hidden="true">
+        {deck.map((_, idx) => (
+          <span
+            key={idx}
+            className="flex-1 rounded-sm"
+            style={{
+              height: 7,
+              backgroundColor:
+                idx < cardIndex
+                  ? 'var(--ac)'
+                  : idx === cardIndex
+                  ? 'var(--tx)'
+                  : 'var(--border)',
+              opacity: idx <= cardIndex ? 1 : 0.65,
+            }}
+          />
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -162,7 +339,7 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
       ? resumeSession.deck
       : buildDeck(
           {
-            scale: preset.scale * levelConfig.multiplier,
+            scale: 1,
             jr: preset.jr,
             jrs: preset.jrs,
             jokers: preset.jokers,
@@ -190,7 +367,6 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
     card: Card;
     key: number;
   } | null>(null);
-  const [showGuide, setShowGuide] = useState(false);
   const [showRest, setShowRest] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [dealAnimKey, setDealAnimKey] = useState(0);
@@ -415,13 +591,13 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
   const actionRef = useRef({
     complete: completeCard,
     undo: undoLastCard,
-    modalOpen: showRest || showTimeline || showGuide || showQuitConfirm,
+    modalOpen: showRest || showTimeline || showQuitConfirm,
     quitDialogOpen: showQuitConfirm,
   });
   actionRef.current = {
     complete: completeCard,
     undo: undoLastCard,
-    modalOpen: showRest || showTimeline || showGuide || showQuitConfirm,
+    modalOpen: showRest || showTimeline || showQuitConfirm,
     quitDialogOpen: showQuitConfirm,
   };
 
@@ -598,78 +774,41 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto p-3 sm:p-4 md:p-8 lg:p-10 min-w-0 w-full">
-      <header className="flex items-center justify-between mb-5 sm:mb-6 gap-2 sm:gap-4 min-w-0">
-        <button
-          type="button"
-          data-hold="1"
-          className="btn relative overflow-hidden shrink-0 !min-w-0 !px-2.5 sm:!px-3.5 text-xs sm:text-sm"
-          aria-label={t('Quit workout: hold for 1.0 second')}
-          title={t('Hold 1.0 second to quit')}
-          onPointerDown={startHoldQuit}
-          onPointerUp={cancelHoldQuit}
-          onPointerLeave={cancelHoldQuit}
-          onPointerCancel={cancelHoldQuit}
-          onContextMenu={(e) => e.preventDefault()}
-          onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
-              e.preventDefault();
-              startHoldQuit();
-            }
-          }}
-          onKeyUp={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              cancelHoldQuit();
-            }
-          }}
-        >
-          {isHoldingQuit && (
-            <span
-              className="absolute inset-0"
-              style={{
-                backgroundColor: 'var(--ac)',
-                opacity: 0.3,
-                transformOrigin: 'left',
-                animation: 'holdfill 1.0s linear forwards',
-              }}
-            />
-          )}
-          <span className="relative flex items-center gap-1.5">
-            <span className="flip">
-              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-            </span>
-            <span>{t('Hold to quit')}</span>
-          </span>
-        </button>
-
-        <div className="text-center min-w-0 flex-1">
-          <div className="font-bold truncate text-sm sm:text-base">{t(preset.name)}</div>
-          <div className="mut text-xs sm:text-sm truncate">
-            {t(halfDeck ? 'Half-Deck Blitz' : 'Full Deck')}
-          </div>
+    <div className="max-w-[1440px] mx-auto px-3 pt-2.5 pb-8 sm:p-5 md:p-8 lg:p-10 min-w-0 w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-2.5 sm:gap-5 lg:gap-8 min-w-0">
+        {/* Timer & Progress HUD: ultra-compact at top on mobile, full card in right column on desktop */}
+        <div className="order-1 lg:order-none lg:col-start-2 lg:row-start-1 min-w-0">
+          <MobileHudPanel
+            startEpochRef={startEpochRef}
+            cardStartEpochRef={cardStartEpochRef}
+            pausedAt={pausedAt}
+            repsDone={repsDone}
+            totalReps={totalReps}
+            cardsRemaining={deck.length - cardIndex}
+            totalCards={deck.length}
+            cardIndex={cardIndex}
+            estimatedKcal={estimatedKcal}
+            targetRpe={effectiveTargetRpe}
+            deck={deck}
+          />
+          <SessionMetricsPanel
+            startEpochRef={startEpochRef}
+            cardStartEpochRef={cardStartEpochRef}
+            pausedAt={pausedAt}
+            repsDone={repsDone}
+            totalReps={totalReps}
+            cardsRemaining={deck.length - cardIndex}
+            totalCards={deck.length}
+            cardIndex={cardIndex}
+            estimatedKcal={estimatedKcal}
+            targetRpe={effectiveTargetRpe}
+            deck={deck}
+          />
         </div>
 
-        <div className="shrink-0 flex justify-end sm:min-w-[140px]">
-          {effectiveTargetRpe ? (
-            <div className="surface-card rounded-xl px-2.5 sm:px-3 py-1.5 text-end">
-              <div className="mut text-[10px] leading-none">{t('Target RPE')}</div>
-              <div
-                className="mono font-bold text-xs sm:text-sm leading-tight mt-0.5"
-                style={{ color: effectiveTargetRpe >= 8 ? 'var(--red)' : 'var(--ac)' }}
-              >
-                {effectiveTargetRpe}/10
-              </div>
-            </div>
-          ) : (
-            <span className="hidden sm:block" style={{ minWidth: 140 }} />
-          )}
-        </div>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5 sm:gap-6 lg:gap-8 min-w-0">
+        {/* Active Card Stage + Primary Action Controls */}
         <section
-          className="order-2 lg:order-none lg:col-start-1 lg:row-start-1 lg:row-span-2 surface-inset rounded-3xl p-4 md:p-8 lg:p-10 flex flex-col items-center min-w-0 w-full"
+          className="order-2 lg:order-none lg:col-start-1 lg:row-start-1 lg:row-span-2 surface-inset rounded-3xl p-3 sm:p-5 md:p-7 lg:p-9 flex flex-col items-center min-w-0 w-full"
           style={{ perspective: 1200 }}
         >
           <div className="card-stage" dir="ltr">
@@ -741,10 +880,10 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full max-w-sm min-w-0">
+          <div className="grid grid-cols-3 gap-2 w-full max-w-sm min-w-0">
             <button
               type="button"
-              className="btn btn-cta col-span-3 !min-h-[56px] text-base w-full"
+              className="btn btn-cta col-span-3 !min-h-[50px] sm:!min-h-[56px] text-base w-full"
               onClick={completeCard}
             >
               {t('Done, next card')}
@@ -778,7 +917,7 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
             </button>
             <button
               type="button"
-              className={`btn col-span-3 !min-w-0 w-full !px-3 text-xs sm:text-sm ${autoRest ? 'btn-active' : ''}`}
+              className={`btn col-span-3 !min-h-[40px] !min-w-0 w-full !px-3 text-xs sm:text-sm ${autoRest ? 'btn-active' : ''}`}
               aria-pressed={autoRest}
               onClick={() => {
                 sfx.pop();
@@ -791,61 +930,22 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
             </button>
           </div>
 
-          <p className="mut text-xs sm:text-sm mt-4 text-center hidden sm:block">
+          <p className="mut text-xs sm:text-sm mt-3 text-center hidden sm:block">
             {t('Tap the card or press Done. Space also works, Backspace undoes.')}
           </p>
-
-          <div className="flex gap-3 mt-4">
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setShowGuide(true)}
-            >
-              {t('Form guide')}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setShowTimeline(true)}
-            >
-              {t('Timeline')}
-            </button>
-          </div>
         </section>
 
-        <section className="contents">
-          <div className="order-1 lg:order-none lg:col-start-2 lg:row-start-1 surface-card rounded-3xl p-4 lg:p-5">
-            <SessionMetricsPanel
-              startEpochRef={startEpochRef}
-              cardStartEpochRef={cardStartEpochRef}
-              pausedAt={pausedAt}
-              repsDone={repsDone}
-              totalReps={totalReps}
-              cardsRemaining={deck.length - cardIndex}
-              estimatedKcal={estimatedKcal}
-            />
+        {/* Secondary stats (mobile) + Movements breakdown */}
+        <section className="order-3 lg:order-none lg:col-start-2 lg:row-start-2 space-y-3 min-w-0">
+          <MobileSecondaryStats
+            startEpochRef={startEpochRef}
+            pausedAt={pausedAt}
+            repsDone={repsDone}
+            totalReps={totalReps}
+            estimatedKcal={estimatedKcal}
+          />
 
-            <div className="flex gap-[2px] mt-3" aria-hidden="true">
-              {deck.map((_, idx) => (
-                <span
-                  key={idx}
-                  className="flex-1 rounded-sm"
-                  style={{
-                    height: 7,
-                    backgroundColor:
-                      idx < cardIndex
-                        ? 'var(--ac)'
-                        : idx === cardIndex
-                        ? 'var(--tx)'
-                        : 'var(--border)',
-                    opacity: idx <= cardIndex ? 1 : 0.65,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="order-3 lg:order-none lg:col-start-2 lg:row-start-2 surface-card rounded-3xl p-5">
+          <div className="surface-card rounded-3xl p-4 sm:p-5">
             <div className="mut text-xs font-semibold uppercase tracking-wider mb-3">
               {t('Movements')}
             </div>
@@ -873,8 +973,73 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
               </div>
             ))}
           </div>
+
+          <button
+            type="button"
+            className="btn w-full !min-h-[44px] text-sm"
+            onClick={() => setShowTimeline(true)}
+          >
+            {t('Timeline')}
+          </button>
         </section>
       </div>
+
+      {/* Bottom Session Info & Centered Long Quit Button */}
+      <footer
+        className="mt-6 pt-5 border-t flex flex-col items-center text-center gap-3"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <div className="min-w-0 max-w-full px-2">
+          <div className="font-bold truncate text-sm sm:text-base">{t(preset.name)}</div>
+          <div className="mut text-xs sm:text-sm truncate">
+            {t(halfDeck ? 'Half-Deck Blitz' : 'Full Deck')}
+            {effectiveTargetRpe ? ` · ${t('Target RPE')} ${effectiveTargetRpe}/10` : ''}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          data-hold="1"
+          className="btn relative overflow-hidden w-full max-w-md !min-h-[48px] !px-6 text-sm font-semibold"
+          aria-label={t('Quit workout: hold for 1.0 second')}
+          title={t('Hold 1.0 second to quit')}
+          onPointerDown={startHoldQuit}
+          onPointerUp={cancelHoldQuit}
+          onPointerLeave={cancelHoldQuit}
+          onPointerCancel={cancelHoldQuit}
+          onContextMenu={(e) => e.preventDefault()}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+              e.preventDefault();
+              startHoldQuit();
+            }
+          }}
+          onKeyUp={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              cancelHoldQuit();
+            }
+          }}
+        >
+          {isHoldingQuit && (
+            <span
+              className="absolute inset-0"
+              style={{
+                backgroundColor: 'var(--ac)',
+                opacity: 0.3,
+                transformOrigin: 'left',
+                animation: 'holdfill 1.0s linear forwards',
+              }}
+            />
+          )}
+          <span className="relative flex items-center justify-center gap-2">
+            <span className="flip">
+              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+            </span>
+            <span>{t('Hold to quit')}</span>
+          </span>
+        </button>
+      </footer>
 
       {showRest && (
         <RestModal
@@ -888,10 +1053,6 @@ export const WorkoutPlayer: React.FC<WorkoutPlayerProps> = ({
             setShowRest(false);
           }}
         />
-      )}
-
-      {showGuide && (
-        <FormGuideModal preset={preset} onClose={() => setShowGuide(false)} />
       )}
 
       {showQuitConfirm && (

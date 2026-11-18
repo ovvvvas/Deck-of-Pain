@@ -1,5 +1,6 @@
+import { LEVELS } from '../data/movements';
 import type { Preset, SavedSession, UserSettings, WorkoutLog } from '../types/workout';
-import { cleanLogEntry } from './deck';
+import { cardReps, cleanLogEntry } from './deck';
 
 export function loadWorkoutLogs(): WorkoutLog[] {
   try {
@@ -55,7 +56,12 @@ export function loadSavedSession(presets: Preset[]): SavedSession | null {
       typeof parsed.idx === 'number' &&
       presets.some((p) => p.id === parsed.pid)
     ) {
-      return parsed as SavedSession;
+      const sess = parsed as SavedSession;
+      const lvlCfg = LEVELS[sess.lv in LEVELS ? sess.lv : 's'];
+      sess.deck = sess.deck.map((card) =>
+        card.j ? card : { ...card, reps: cardReps(card.r, 1, lvlCfg.faceOverrides) }
+      );
+      return sess;
     }
     localStorage.removeItem('dop-sess');
   } catch {

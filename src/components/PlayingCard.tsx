@@ -24,7 +24,10 @@ export const CardFace: React.FC<CardFaceProps> = ({ card, moveName }) => {
   return (
     <>
       {card.j && (
-        <div className="card-corner disp font-black tracking-widest text-[9cqw]" style={{ color: 'var(--joker-ink)' }}>
+        <div
+          className="card-corner disp font-black tracking-widest text-[9cqw]"
+          style={{ color: 'var(--joker-ink)' }}
+        >
           JOKER
         </div>
       )}
@@ -33,17 +36,25 @@ export const CardFace: React.FC<CardFaceProps> = ({ card, moveName }) => {
       )}
       <div className="card-center relative">
         {card.j && (
-          <div className="absolute top-[4cqw] left-1/2 -translate-x-1/2 pointer-events-none">
-            <SuitGlyph suit={card.s} height="38cqw" />
+          <div className="mb-[2.5cqw] pointer-events-none">
+            <SuitGlyph suit={card.s} height="28cqw" />
           </div>
         )}
-        <div className={`reps-num disp ${isRed ? 'red' : ''}`} style={jokerTextColor}>{card.reps}</div>
+        <div
+          className={`reps-num disp ${isRed ? 'red' : ''}`}
+          style={jokerTextColor}
+        >
+          {card.reps}
+        </div>
         <div className="move-name" dir="auto" style={jokerTextColor}>
           {moveName}
         </div>
       </div>
       {card.j && (
-        <div className="card-corner br disp font-black tracking-widest text-[9cqw]" style={{ color: 'var(--joker-ink)' }}>
+        <div
+          className="card-corner br disp font-black tracking-widest text-[9cqw]"
+          style={{ color: 'var(--joker-ink)' }}
+        >
           JOKER
         </div>
       )}

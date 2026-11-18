@@ -70,13 +70,11 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   );
 
   const [restInput, setRestInput] = useState(String(preset.rest));
-  const [scaleInput, setScaleInput] = useState(String(preset.scale));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showFavPicker, setShowFavPicker] = useState(false);
 
-  const clampedScale = Math.min(3, Math.max(0.3, Number(scaleInput) || 1));
   const projectedTotal = fullDeckReps({
-    scale: clampedScale,
+    scale: 1,
     jrs: [
       joker1Active ? joker1Reps : 0,
       joker2Active ? joker2Reps : 0,
@@ -363,8 +361,8 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-2">
-        <label className="mut text-xs min-w-0">
+      <div className="mb-2">
+        <label className="mut text-xs min-w-0 block">
           {t('Rest (s)')}
           <input
             type="number"
@@ -374,19 +372,6 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
             style={inputStyle}
             value={restInput}
             onChange={(e) => setRestInput(e.target.value)}
-          />
-        </label>
-        <label className="mut text-xs min-w-0">
-          {t('Volume')} ×
-          <input
-            type="number"
-            min={0.3}
-            max={3}
-            step={0.1}
-            className="rounded-xl px-3 w-full mt-1"
-            style={inputStyle}
-            value={scaleInput}
-            onChange={(e) => setScaleInput(e.target.value)}
           />
         </label>
       </div>
@@ -423,7 +408,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                 (joker1Active ? joker1Reps : 0) +
                 (joker2Active ? joker2Reps : 0),
               rest: Math.min(300, Math.max(5, Number(restInput) || 30)),
-              scale: clampedScale,
+              scale: 1,
             })
           }
         >

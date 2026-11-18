@@ -54,7 +54,9 @@ export const MovementOptions: React.FC<MovementOptionsProps> = ({
         </optgroup>
       ))}
       {!ALL_MOVEMENTS.includes(current) && (
-        <option value={current}>{t(current)}</option>
+        <option key={`custom-${current}`} value={current}>
+          {t(current)}
+        </option>
       )}
     </>
   );

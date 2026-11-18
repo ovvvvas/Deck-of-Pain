@@ -152,8 +152,18 @@ test('Responsive CSS & viewport layout contracts hold', () => {
     path.join(ROOT, 'src/components/PlayingCard.tsx'),
     'utf8'
   );
-  assert.match(playingCard, /height="38cqw"/, 'Joker emblem should scale proportionally via cqw');
+  assert.match(playingCard, /height="28cqw"/, 'Joker emblem should scale proportionally via cqw');
   assert.match(playingCard, /var\(--joker-ink\)/, 'Joker card ink should be theme-aware');
+
+  const playerSrc = fs.readFileSync(
+    path.join(ROOT, 'src/components/WorkoutPlayer.tsx'),
+    'utf8'
+  );
+  assert.match(playerSrc, /MobileHudPanel/, 'Compact mobile timer HUD should sit at top');
+  assert.match(playerSrc, /<footer[\s\S]*Hold to quit/, 'Quit button and session title should sit in bottom footer');
+  assert.match(playerSrc, /max-w-md/, 'Quit button should be wide and centered at bottom');
+  assert.equal(/FormGuideModal|Form guide/.test(playerSrc), false, 'Form guide should be removed from active workout player');
+  assert.match(playerSrc, /Movements[\s\S]*Timeline/, 'Timeline button should appear under Movements section');
 });
 
 test('Movements & Presets: zero Ladder references and complete movement metadata', () => {
@@ -166,6 +176,19 @@ test('Movements & Presets: zero Ladder references and complete movement metadata
       `Found leftover Ladder reference in ${file}`
     );
   }
+
+  assert.equal(
+    new Set(ALL_MOVEMENTS).size,
+    ALL_MOVEMENTS.length,
+    'ALL_MOVEMENTS must not contain duplicate movement names'
+  );
+
+  const chartsSrc = fs.readFileSync(path.join(ROOT, 'src/components/Charts.tsx'), 'utf8');
+  assert.match(
+    chartsSrc,
+    /key=\{`\$\{item\.suitIdx\}-\$\{item\.name\}`\}/,
+    'Charts movement fade rows must include suitIdx in React key'
+  );
 
   for (const move of ALL_MOVEMENTS) {
     assert.equal(
@@ -192,14 +215,46 @@ test('Movements & Presets: zero Ladder references and complete movement metadata
   }
 });
 
-test('Deck engine: cardReps, fullDeckReps, dual Jokers & Blitz mode behave accurately', () => {
-  assert.equal(cardReps('2', 0.6), 2);
-  assert.equal(cardReps('2', 1.25), 2);
-  assert.equal(cardReps('2', 2.0), 2);
+test('Deck engine: exact card numbers (no multiplier), level face values, smart suit pacing, spaced Jokers & balanced Blitz', () => {
+  const numberRanks = ['2', '3', '4', '5', '6', '7', '8', '9', '10'] as const;
+  for (const lvl of Object.values(LEVELS)) {
+    for (const rank of numberRanks) {
+      assert.equal(
+        cardReps(rank, 1, lvl.faceOverrides),
+        Number(rank),
+        `Number card ${rank} must match its face value at level ${lvl.name}`
+      );
+      assert.equal(
+        cardReps(rank, 0.5, lvl.faceOverrides),
+        Number(rank),
+        `Number card ${rank} must ignore any multiplier`
+      );
+    }
+  }
 
-  assert.equal(cardReps('A', 1, LEVELS.b.faceOverrides), 12);
+  for (const preset of loadInitialPresets()) {
+    assert.equal(preset.scale, 1, `Built-in preset ${preset.id} should use scale 1`);
+  }
+
+  // Exact face card & Ace rules per level
+  assert.equal(cardReps('J', 1, LEVELS.b.faceOverrides), 10);
+  assert.equal(cardReps('Q', 1, LEVELS.b.faceOverrides), 10);
+  assert.equal(cardReps('K', 1, LEVELS.b.faceOverrides), 10);
+  assert.equal(cardReps('A', 1, LEVELS.b.faceOverrides), 11);
+
+  assert.equal(cardReps('J', 1, LEVELS.s.faceOverrides), 11);
+  assert.equal(cardReps('Q', 1, LEVELS.s.faceOverrides), 12);
+  assert.equal(cardReps('K', 1, LEVELS.s.faceOverrides), 13);
   assert.equal(cardReps('A', 1, LEVELS.s.faceOverrides), 15);
-  assert.equal(cardReps('A', 1, LEVELS.a.faceOverrides), 19);
+
+  assert.equal(cardReps('J', 1, LEVELS.a.faceOverrides), 12);
+  assert.equal(cardReps('Q', 1, LEVELS.a.faceOverrides), 14);
+  assert.equal(cardReps('K', 1, LEVELS.a.faceOverrides), 16);
+  assert.equal(cardReps('A', 1, LEVELS.a.faceOverrides), 18);
+
+  assert.equal(fullDeckReps({ scale: 1, jrs: [0, 0], fx: LEVELS.b.faceOverrides }), 380);
+  assert.equal(fullDeckReps({ scale: 1, jrs: [0, 0], fx: LEVELS.s.faceOverrides }), 420);
+  assert.equal(fullDeckReps({ scale: 1, jrs: [0, 0], fx: LEVELS.a.faceOverrides }), 456);
 
   const presets = loadInitialPresets();
   const sample = presets[0];
@@ -209,6 +264,7 @@ test('Deck engine: cardReps, fullDeckReps, dual Jokers & Blitz mode behave accur
       scale: sample.scale,
       jrs: [35, 45],
       jokers: ['V-ups', 'Burpees'],
+      fx: LEVELS.s.faceOverrides,
     },
     false
   );
@@ -217,6 +273,24 @@ test('Deck engine: cardReps, fullDeckReps, dual Jokers & Blitz mode behave accur
   const joker1 = full.find((c) => c.j && c.jokerIndex === 1);
   assert.ok(joker0 && joker0.reps === 35);
   assert.ok(joker1 && joker1.reps === 45);
+
+  // Verify Jokers are spaced apart (not card #0 and not adjacent)
+  const jIndices = full
+    .map((c, idx) => (c.j ? idx : -1))
+    .filter((idx) => idx >= 0);
+  assert.equal(jIndices.length, 2);
+  assert.ok(jIndices[0] >= 6, 'First Joker should not ambush card #1');
+  assert.ok(jIndices[1] - jIndices[0] >= 4, 'Two Jokers must stay separated');
+
+  // Verify no suit repeats more than twice consecutively
+  const nonJokerSuits = full.filter((c) => !c.j).map((c) => c.s);
+  for (let i = 2; i < nonJokerSuits.length; i++) {
+    assert.equal(
+      nonJokerSuits[i] === nonJokerSuits[i - 1] && nonJokerSuits[i] === nonJokerSuits[i - 2],
+      false,
+      'Smart shuffle must avoid >2 consecutive cards of the same suit'
+    );
+  }
 
   const customPreset: Preset = {
     ...sample,
@@ -230,10 +304,16 @@ test('Deck engine: cardReps, fullDeckReps, dual Jokers & Blitz mode behave accur
     {
       scale: sample.scale,
       jrs: [35, 45],
+      fx: LEVELS.s.faceOverrides,
     },
     true
   );
   assert.equal(blitz.length, 27);
+  // Every suit in Half-Deck Blitz has balanced low/mid/high cards (>= 40 reps per suit)
+  for (let suit = 0; suit < 4; suit++) {
+    const suitReps = blitz.filter((c) => c.s === suit).reduce((s, c) => s + c.reps, 0);
+    assert.ok(suitReps >= 38, `Blitz suit ${suit} should stay balanced (got ${suitReps})`);
+  }
 
   const noJoker = buildDeck({ scale: 1, jrs: [0, 0] }, false);
   assert.equal(noJoker.length, 52);

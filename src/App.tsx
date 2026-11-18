@@ -324,7 +324,7 @@ export default function App() {
 
   const projectedReps = useMemo(() => {
     const full = fullDeckReps({
-      scale: selectedPreset.scale * levelConfig.multiplier,
+      scale: 1,
       jr: selectedPreset.jr,
       jrs: selectedPreset.jrs,
       fx: levelConfig.faceOverrides,
@@ -638,14 +638,10 @@ export default function App() {
   }
 
   const displayedLogs = showAllLogs ? logs : logs.slice(0, 8);
-  const facePreviewText = (['A', 'K', 'Q', 'J'] as const)
+  const facePreviewText = (['J', 'Q', 'K', 'A'] as const)
     .map(
       (rank) =>
-        `${rank}:${cardReps(
-          rank,
-          selectedPreset.scale * levelConfig.multiplier,
-          levelConfig.faceOverrides
-        )}`
+        `${rank}:${cardReps(rank, 1, levelConfig.faceOverrides)}`
     )
     .join(' · ');
 
@@ -944,7 +940,7 @@ export default function App() {
                         {t(selectedPreset.name)}
                       </h1>
                       <p className="mut text-xs mt-0.5 truncate">
-                        {t(selectedPreset.tag)} · ×{selectedPreset.scale}
+                        {t(selectedPreset.tag)}
                       </p>
                     </div>
 
@@ -981,17 +977,8 @@ export default function App() {
                           <span className="font-medium truncate">{t(move)}</span>
                         </span>
                         <span className="mono mut text-xs shrink-0">
-                          {cardReps(
-                            '2',
-                            selectedPreset.scale * levelConfig.multiplier,
-                            levelConfig.faceOverrides
-                          )}
-                          –
-                          {cardReps(
-                            'A',
-                            selectedPreset.scale * levelConfig.multiplier,
-                            levelConfig.faceOverrides
-                          )}{' '}
+                          {cardReps('2', 1, levelConfig.faceOverrides)}–
+                          {cardReps('A', 1, levelConfig.faceOverrides)}{' '}
                           {t('reps')}
                         </span>
                       </div>
@@ -1664,8 +1651,7 @@ export default function App() {
                       >
                         <div className="mono mut text-[11px] truncate min-w-0 flex-1">
                           {preset.rest}
-                          {t('unit-s')} · ×{preset.scale} ·{' '}
-                          {getJokerSummary(preset)}
+                          {t('unit-s')} · {getJokerSummary(preset)}
                         </div>
                         <button
                           type="button"
@@ -1864,7 +1850,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {displayedLogs.map((entry) => {
+                  {displayedLogs.map((entry, idx) => {
                     const hasDetails = Boolean(
                       entry.cs && entry.cs.length >= 1
                     );
@@ -1876,7 +1862,7 @@ export default function App() {
                     const kcal = computeSessionKcal(entry, movs);
                     return (
                       <div
-                        key={entry.d}
+                        key={`${entry.d}-${idx}`}
                         className={`surface-inset rounded-2xl px-4 py-3 flex items-center justify-between gap-3 ${
                           hasDetails ? 'cursor-pointer hover:opacity-90' : ''
                         }`}

@@ -199,14 +199,14 @@ const FA_TRANSLATIONS: Record<string, string> = {
   'Run the session': 'جلسه را اجرا کن',
   'Draw a card, do that many reps of its suit’s movement, then draw the next.':
     'یک کارت بکش، به تعداد عددش از حرکت خالش انجام بده و بعد کارت بعدی را بکش.',
-  'Number cards count as their number. At Standard, Ace is 15 and K, Q, J are 13, 12 and 11.':
-    'کارت‌های عددی همان عدد خودشان‌اند. در سطح متوسط، تک ۱۵ و شاه، بی‌بی و سرباز به‌ترتیب ۱۳، ۱۲ و ۱۱ است.',
+  'Number cards 2–10 always equal their exact number. Face cards and Ace depend on your level.':
+    'کارت‌های عددی ۲ تا ۱۰ همیشه برابر عدد خودشان هستند. کارت‌های تصویر و تک به سطح شما بستگی دارند.',
   'The two jokers are high-intensity bonus movements co-configured from 20 to 50 reps.':
     'دو جوکر حرکات پاداش با شدت بالا هستند که از ۲۰ تا ۵۰ ریپ تنظیم می‌شوند.',
-  'Beginner keeps number cards small: Ace is 12 and K, Q, J are 11.':
-    'سطح مبتدی کارت‌های عددی را کوچک نگه می‌دارد: تک ۱۲ و شاه، بی‌بی و سرباز ۱۱ است.',
-  'Standard is the full deck. Advanced adds 25 percent.':
-    'سطح متوسط دک کامل است. حرفه‌ای ۲۵ درصد بیشتر دارد.',
+  'Beginner: J, Q, K = 10 and Ace = 11. Standard: J = 11, Q = 12, K = 13, Ace = 15.':
+    'مبتدی: سرباز، بی‌بی و شاه ۱۰ و تک ۱۱. متوسط: سرباز ۱۱، بی‌بی ۱۲، شاه ۱۳، تک ۱۵.',
+  'Advanced: J = 12, Q = 14, K = 16, Ace = 18.':
+    'حرفه‌ای: سرباز ۱۲، بی‌بی ۱۴، شاه ۱۶، تک ۱۸.',
   'Half-Deck Blitz plays about 26 cards when you are short on time.':
     'وقتی وقت کم داری، بلیتز نیم‌دک حدود ۲۶ کارت بازی می‌کند.',
   'Swipe the card or press Done to finish it.':

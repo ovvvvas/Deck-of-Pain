@@ -252,9 +252,17 @@ html[lang="fa"] .card-stage .disp {
   position: relative;
   container-type: inline-size;
   aspect-ratio: 5 / 7;
-  min-width: 170px;
-  width: min(330px, 80vw, calc((100svh - 19.5rem) * 5 / 7));
-  margin-bottom: 1.25rem;
+  min-width: 156px;
+  width: min(300px, 66vw, calc((100svh - 20rem) * 5 / 7));
+  margin-bottom: 0.875rem;
+}
+
+@media (min-width: 1024px) {
+  .card-stage {
+    min-width: 170px;
+    width: min(330px, 80vw, calc((100svh - 17rem) * 5 / 7));
+    margin-bottom: 1.25rem;
+  }
 }
 
 .card-deal {

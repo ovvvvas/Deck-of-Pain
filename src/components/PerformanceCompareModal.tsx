@@ -372,10 +372,10 @@ export const PerformanceCompareModal: React.FC<PerformanceCompareModalProps> = (
               role="img"
               aria-label={t('Time per card comparison')}
             >
-              {[Math.round(maxCardSec), Math.round(maxCardSec / 2), 0].map((mark) => {
+              {[Math.round(maxCardSec), Math.round(maxCardSec / 2), 0].map((mark, idx) => {
                 const y = padY + plotH - (mark / maxCardSec) * plotH;
                 return (
-                  <g key={mark}>
+                  <g key={`${idx}-${mark}`}>
                     <line
                       x1={padX}
                       y1={y}

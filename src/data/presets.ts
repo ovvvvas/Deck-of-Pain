@@ -66,7 +66,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Short rests, shorter reps, faster heart.',
     ex: ['Burpees', 'Mountain Climbers', 'Air Squats', 'Jumping Jacks'],
     rest: 15,
-    scale: 0.6,
+    scale: 1,
     jokers: ['Jump Squats', 'Burpees'],
     jrs: [30, 30],
   },
@@ -114,7 +114,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Short reps, short rests, high heart rate.',
     ex: ['High Knees', 'Squat Thrusts', 'Skater Jumps', 'Mountain Climbers'],
     rest: 15,
-    scale: 0.6,
+    scale: 1,
     jokers: ['Jump Squats', 'Mountain Climbers'],
     jrs: [30, 30],
   },
@@ -126,7 +126,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Half the reps and longer rests while you learn the deck.',
     ex: ['Air Squats', 'Push-ups', 'Glute Bridges', 'Sit-ups'],
     rest: 45,
-    scale: 0.5,
+    scale: 1,
     jokers: ['Air Squats', 'Push-ups'],
     jrs: [20, 20],
   },
@@ -138,7 +138,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Heavy volume across pull, push, legs and core.',
     ex: ['Pull-ups', 'Dips', 'Bulgarian Split Squats', 'V-ups'],
     rest: 30,
-    scale: 1.2,
+    scale: 1,
     jokers: ['Burpees', 'Jump Squats'],
     jrs: [50, 50],
   },
@@ -150,7 +150,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Extreme stamina testing across multi-plane movements.',
     ex: ['Burpees', 'Pull-ups', 'Air Squats', 'Push-ups'],
     rest: 20,
-    scale: 1.1,
+    scale: 1,
     jokers: ['Jump Squats', 'Burpees'],
     jrs: [50, 50],
   },
@@ -162,7 +162,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Lightning fast deck designed for explosive power and grit.',
     ex: ['Mountain Climbers', 'High Knees', 'Squat Thrusts', 'Jump Squats'],
     rest: 10,
-    scale: 0.8,
+    scale: 1,
     jokers: ['Jump Squats', 'Jump Squats'],
     jrs: [40, 40],
   },
@@ -174,7 +174,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Unrelenting upper body pressing and pulling volume.',
     ex: ['Chin-ups', 'Decline Push-ups', 'Dips', 'Inverted Rows'],
     rest: 30,
-    scale: 1.05,
+    scale: 1,
     jokers: ['Pull-ups', 'Dips'],
     jrs: [40, 40],
   },
@@ -186,7 +186,7 @@ const DEFAULT_PRESET_DATA: Preset[] = [
     desc: 'Maximum load calisthenics for supreme physical conditioning.',
     ex: ['Pull-ups', 'Bulgarian Split Squats', 'Diamond Push-ups', 'Hanging Leg Raises'],
     rest: 35,
-    scale: 1.15,
+    scale: 1,
     jokers: ['Burpees', 'V-ups'],
     jrs: [45, 45],
   },
@@ -236,7 +236,7 @@ export function loadInitialPresets(): Preset[] {
         ) {
           preset.ex = ov.ex as Preset['ex'];
           preset.rest = ov.rest;
-          preset.scale = ov.scale;
+          preset.scale = 1;
           preset.joker = typeof ov.joker === 'string' ? ov.joker : undefined;
           if (Array.isArray(ov.jokers) && ov.jokers.length === 2) {
             preset.jokers = ov.jokers as [string, string];
@@ -291,7 +291,7 @@ export function loadInitialPresets(): Preset[] {
                 : 'Built by you from the movement bank.',
             ex: item.ex as Preset['ex'],
             rest: item.rest,
-            scale: item.scale,
+            scale: 1,
             joker: typeof item.joker === 'string' ? item.joker : undefined,
             jr: typeof item.jr === 'number' ? clampJokerReps(item.jr) : 50,
             jokers: Array.isArray(item.jokers) ? item.jokers : undefined,

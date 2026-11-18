@@ -394,7 +394,7 @@ const ChartsInner: React.FC<ChartsProps> = ({ splits, movementNames }) => {
         {movementFades.map((item) => {
           const ratio = item.secondHalf / Math.max(0.05, item.firstHalf);
           return (
-            <div key={item.name} className="mb-2.5 last:mb-0">
+            <div key={`${item.suitIdx}-${item.name}`} className="mb-2.5 last:mb-0">
               <div className="flex flex-wrap justify-between gap-1 text-xs mb-1 min-w-0">
                 <span className="truncate min-w-0">
                   <SuitGlyph suit={item.suitIdx} /> {t(item.name)}
